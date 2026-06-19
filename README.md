@@ -1,12 +1,12 @@
-# ClimateGuard — AI Agent for Climate Risk Monitoring in Kazakhstan
+# ClimateGuard-AI Agent for Climate Risk Monitoring in Kazakhstan
 
-A multi-agent AI system that autonomously analyzes satellite imagery and hydrological data to predict flood and drought risks for agricultural regions in Kazakhstan.
+A multi-agent AI system that autonomously analyzes satellite imagery and hydrological data to predict flood and drought risks for agricultural regions in Kazakhstan, with persistent conversation memory powered by PostgreSQL.
 
 ---
 
 ## The Problem
 
-Climate change is causing increasingly severe floods and droughts across Kazakhstan, destroying harvests and threatening food security. Farmers and agronomists have no accessible tool to get accurate, location-specific risk forecasts. Existing weather services provide generic predictions — not actionable, field-level intelligence.
+Climate change is causing increasingly severe floods and droughts across Kazakhstan, destroying harvests and threatening food security. Farmers and agronomists have no accessible tool to get accurate, location-specific risk forecasts. Existing weather services provide generic predictions-not actionable, field-level intelligence.
 
 ChatGPT and similar tools cannot solve this: they have no access to real-time satellite data, cannot process GeoTIFF or NetCDF files, and cannot run autonomous geospatial computation pipelines.
 
@@ -14,13 +14,7 @@ ChatGPT and similar tools cannot solve this: they have no access to real-time sa
 
 ## What It Does
 
-ClimateGuard is an autonomous AI agent. A farmer or agronomist types a natural language query — "assess flood risk for my district in North Kazakhstan over the next two weeks" — and the agent handles everything else:
-
-1. Connects to NASA Landsat and ESA Sentinel satellite APIs and downloads relevant imagery
-2. Writes and executes Python scripts to process raw geospatial data (GeoTIFF, NetCDF)
-3. Applies hydrological and soil degradation models using historical data from Kazhydromet and ISSAI
-4. Detects errors in its own calculations and self-corrects
-5. Returns a flood or drought risk map accurate to the meter, with concrete recommendations
+ClimateGuard is an autonomous AI agent. A farmer or agronomist types a natural language query — "assess flood risk for my district in North Kazakhstan"-and the agent analyzes regional climate risk and returns a structured assessment with risk level, key factors, and recommendations. Every conversation is saved to PostgreSQL, so the assistant remembers prior context within a session.
 
 ---
 
@@ -28,43 +22,29 @@ ClimateGuard is an autonomous AI agent. A farmer or agronomist types a natural l
 
 | Feature | Description |
 |---|---|
-| Satellite Data Integration | Real-time connection to NASA Landsat and ESA Sentinel APIs |
-| Autonomous Code Generation | Agent writes, runs, and debugs its own Python processing scripts |
-| Flood Risk Assessment | Snowmelt and water runoff modeling for river basins in Kazakhstan |
-| Drought & Soil Degradation Analysis | Multi-year soil moisture trend analysis per geographic zone |
-| Local Data Layer | Integration with Kazhydromet historical archives and ISSAI datasets |
-| Risk Visualization | Outputs georeferenced risk maps with field-level precision |
-| Natural Language Interface | Plain-language queries — no GIS expertise required |
+| Region & Risk Dashboard | Select a region, risk type (flood/drought), and season for instant analysis |
+| Conversation Memory | PostgreSQL stores every message; Oylan receives full history on each request |
+| Region Comparison | Compare flood/drought risk between two regions side by side |
+| AI-Generated Summary | Each analysis includes a short, plain-language summary |
+| Multi-language | Responses in Russian, Kazakh, or English |
+| Conversation History API | `GET /history/{session_id}` retrieves the full saved conversation |
 
 ---
 
 ## Architecture Overview
 
 ```
-User (farmer / agronomist)
-         |
-         v
-Web Interface (React)
-         |
-    HTTP / JSON
-         |
-         v
-FastAPI Backend — Agent Orchestrator
-         |
-    +----+----------------+------------------+
-    |                     |                  |
-Oylan API           Satellite APIs      Local Data Layer
-(reasoning,         NASA Landsat        Kazhydromet archives
- code generation,   ESA Sentinel        ISSAI hydrological
- self-correction)   (GeoTIFF, NetCDF)   datasets
-    |
-    v
-Python Execution Engine
-(geospatial processing:
- rasterio, xarray, numpy)
-    |
-    v
-Risk Map Output + Recommendations
+React Frontend
+      |
+      v
+FastAPI Backend
+      |
+   +--+-------------------+
+   |                      |
+PostgreSQL            Oylan API
+(messages table:      (reasoning,
+ session_id, role,     contextual responses)
+ content, created_at)
 ```
 
 ---
@@ -72,35 +52,58 @@ Risk Map Output + Recommendations
 ## Tech Stack
 
 - **Backend:** Python / FastAPI / Uvicorn
-- **Agent AI:** Oylan API — reasoning, code generation, self-correction loop
-- **Satellite Data:** NASA Earthdata API (Landsat), ESA Copernicus API (Sentinel-2)
-- **Geospatial Processing:** rasterio, xarray, numpy, geopandas
-- **Local Data:** Kazhydromet API, ISSAI internal datasets
-- **Frontend:** React + Leaflet.js (interactive map rendering)
-- **Database:** PostgreSQL + PostGIS (geospatial extension)
+- **Database:** PostgreSQL + SQLAlchemy (async, via asyncpg)
+- **AI:** Oylan API-conversational analysis with memory
+- **Frontend:** React
 - **Validation:** Pydantic
-- **Auth:** JWT
-
----
-
-## Research Potential
-
-This project is designed as a scalable architecture. The geospatial pipeline and agent design can be transferred to any agricultural region by changing satellite coordinates — Great Plains (USA), sub-Saharan Africa, Scandinavia. Kazakhstan serves as the primary testbed due to its extreme continental climate and high vulnerability to both flood and drought events.
 
 ---
 
 ## Getting Started
 
+### 1. Install PostgreSQL
+
 ```bash
-git clone https://github.com/yourusername/climateguard
-cd climateguard
+brew install postgresql@16
+brew services start postgresql@16
+```
+
+### 2. Create the database and user
+
+```bash
+psql postgres
+```
+
+```sql
+CREATE DATABASE oylan_chat;
+CREATE USER chatuser WITH PASSWORD 'yourpassword';
+GRANT ALL PRIVILEGES ON DATABASE oylan_chat TO chatuser;
+\c oylan_chat
+GRANT ALL ON SCHEMA public TO chatuser;
+\q
+```
+
+### 3. Set up environment variables
+
+Create a `.env` file in the project root:
+
+```
+OYLAN_API_KEY=your_oylan_api_key
+OYLAN_ASSISTANT_ID=your_assistant_id
+OYLAN_BASE_URL=https://oylan.nu.edu.kz/api/v1
+DATABASE_URL=postgresql+asyncpg://chatuser:yourpassword@localhost/oylan_chat
+```
+
+### 4. Install dependencies and run
+
+```bash
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-The server runs at `http://127.0.0.1:8000`. Interactive API docs (Swagger) are available at `http://127.0.0.1:8000/docs`, and ReDoc at `http://127.0.0.1:8000/redoc`.
+The server runs at `http://127.0.0.1:8000`. The `messages` table is created automatically on startup. Interactive API docs are at `http://127.0.0.1:8000/docs`.
 
 ---
 
@@ -109,52 +112,53 @@ The server runs at `http://127.0.0.1:8000`. Interactive API docs (Swagger) are a
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/` | Confirms the server is running |
-| GET | `/health` | Health check for monitoring |
-| POST | `/chat` | Sends a message to the agent and receives a response |
+| GET | `/health` | Health check |
+| POST | `/chat` | Send a message; saves to DB and returns AI reply with conversation memory |
+| GET | `/history/{session_id}` | Retrieve full saved conversation for a session |
+| POST | `/analyze` | Analyze flood/drought risk for a Kazakhstan region |
 
 ---
 
 ## Usage
 
-Check server status:
-
-```http
-GET /
-```
-
-```json
-{
-  "message": "ClimateGuard assistant is running!"
-}
-```
-
-Send a message to the agent:
+Send a message with memory:
 
 ```http
 POST /chat
 Content-Type: application/json
 
 {
-  "message": "Assess flood risk for North Kazakhstan"
+  "message": "Привет! Меня зовут Алия.",
+  "session_id": "alice"
 }
 ```
 
-Response (current placeholder — real Oylan integration comes next):
+```http
+POST /chat
+Content-Type: application/json
 
-```json
 {
-  "reply": "You said: Assess flood risk for North Kazakhstan"
+  "message": "Как меня зовут?",
+  "session_id": "alice"
 }
+```
+
+The assistant correctly recalls "Алия" because the conversation history is stored in PostgreSQL and passed to Oylan on every request.
+
+Retrieve history:
+
+```http
+GET /history/alice
 ```
 
 ---
 
 ## Project Status
 
-In development — Lesson 2: FastAPI backend skeleton with `/`, `/health`, and `/chat` (echo placeholder). Real Oylan API integration and satellite data pipelines are planned for upcoming lessons.
+In development-Lesson 5: PostgreSQL-backed conversation memory implemented. `/chat` saves and recalls message history per session; `/analyze` powers the region risk dashboard.
 
 ---
 
 ## Author
 
-[Your Name] — ISSAI, Nazarbayev University
+Aibike Nurakhan
